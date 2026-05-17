@@ -1,0 +1,20 @@
+{
+  "name": "saas-core-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise-grade multi-tenant SaaS platform. Built using a unified monorepo architecture featuring a Next.js client, a Node.js/TypeScript REST API, and strict CI/CD pipelines.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/squiddy-artist/saas-core-monorepo.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/squiddy-artist/saas-core-monorepo/issues"
+  },
+  "homepage": "https://github.com/squiddy-artist/saas-core-monorepo#readme"
+}
