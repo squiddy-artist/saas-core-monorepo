@@ -1,20 +1,55 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-// 1. The TypeScript Interface (Strict Types the code)
+/**
+ * 🧑‍💻 TypeScript Interface for User Model
+ * Defines the type structures for documents returned by query operations.
+ */
 export interface IUser extends Document {
   name: string;
   email: string;
-  passwordHash: string; // <-- NEW
+  passwordHash: string;
+  refreshTokens: string[]; // 🔄 Holds valid rotation tokens for multi-device login sessions
   createdAt: Date;
 }
 
-// 2. The Mongoose Schema (Strict Rules for the database)
-const UserSchema: Schema = new Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  passwordHash: { type: String, required: true }, // <-- NEW
-  createdAt: { type: Date, default: Date.now }
-});
+/**
+ * 📝 Mongoose Schema Definition
+ * Sets rigorous validation rules and indexes at the database level.
+ */
+const UserSchema: Schema = new Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Name is required 🧑'],
+      trim: true
+    },
+    email: {
+      type: String,
+      required: [true, 'Email is required 📧'],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true // ⚡ Index for lightning-fast logins and organization lookup
+    },
+    passwordHash: {
+      type: String,
+      required: true
+    },
+    refreshTokens: {
+      type: [String],
+      default: []
+    }
+  },
+  {
+    timestamps: true, // ⏱️ Generates createdAt and updatedAt automatisch
+    versionKey: false // 🚫 Removes the default '__v' field
+  }
+);
 
-// 3. Export the Model
+// ⚡ Explicit compound/single indexes can be set here if required in the future
+// UserSchema.index({ email: 1 });
+
+/**
+ * 🚀 Export compiler Mongoose Model
+ */
 export default mongoose.model<IUser>('User', UserSchema);
