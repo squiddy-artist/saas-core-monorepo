@@ -28,6 +28,17 @@ export class BadRequestError extends AppError {
 }
 
 /**
+ * 📝 ValidationError (400)
+ */
+export class ValidationError extends AppError {
+    public readonly errors: Record<string, string>;
+    constructor(errors: Record<string, string>, message: string = 'Validation failed 🛑') {
+        super(message, 400);
+        this.errors = errors;
+    }
+}
+
+/**
  * 🔒 UnauthorizedError (401)
  */
 export class UnauthorizedError extends AppError {

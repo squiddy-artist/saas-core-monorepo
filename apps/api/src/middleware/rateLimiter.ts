@@ -11,7 +11,8 @@ export const authRateLimiter = rateLimit({
     standardHeaders: 'draft-7', // 📝 standard RateLimit-* headers
     legacyHeaders: false, // 🚫 Disable X-RateLimit-* headers
     message: {
-        error: 'Too many authentication attempts. Please try again in 15 minutes 🛑',
+        status: 'fail',
+        message: 'Too many authentication attempts. Please try again in 15 minutes 🛑',
     },
 });
 
@@ -25,6 +26,7 @@ export const globalRateLimiter = rateLimit({
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: {
-        error: 'Extremely high request intensity. Slow down 🛑',
+        status: 'fail',
+        message: 'Extremely high request intensity. Slow down 🛑',
     },
 });

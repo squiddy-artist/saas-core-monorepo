@@ -15,6 +15,7 @@ const envSchema = z.object({
     MONGO_URI: z.string({ required_error: '🍃 MONGO_URI is required' }),
     JWT_SECRET: z.string({ required_error: '🔑 JWT_SECRET is required' }),
     JWT_REFRESH_SECRET: z.string({ required_error: '🔄 JWT_REFRESH_SECRET is required' }),
+    ALLOWED_ORIGINS: z.string().optional().default('http://localhost:3000'),
 
     // Storage configurations (Optional defaults check for general startup, or strict if upload route is used)
     AWS_REGION: z.string().default('us-east-1'),

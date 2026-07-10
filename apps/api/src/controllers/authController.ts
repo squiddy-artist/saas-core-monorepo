@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import User from '../models/User';
 import env from '../config/env';
 import {
@@ -225,3 +226,132 @@ export const logout = async (req: Request, res: Response, next: NextFunction): P
         next(error);
     }
 };
+
+/**
+ * 📧 Request Password Reset Controller
+ * Generates an encrypted token and saves expiry.
+ */
+export const forgotPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { email } = req.body;
+
+        const user = await User.findOne({ email });
+        // To prevent user enumeration attacks, do not reveal if the email does not exist
+        if (!user) {
+            logger.info(`📧 [Auth Controller] Forgot password request for non-existent email: ${email}`);
+            res.status(200).json({
+                status: 'success',
+                message: 'If that email exists, a reset link has been dispatched 📧',
+            });
+            return;
+        }
+
+        // Generate unhashed reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+
+        // Hash token and set expiry (1 hour)
+        user.passwordResetToken = crypto
+            .createHash('sha256')
+            .update(resetToken)
+            .digest('hex');
+        user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+        await user.save();
+
+        // In a real system, you would send this via SendGrid/SES. For development, we log it.
+        logger.info(`🔑 [Auth Controller] Password reset request for ${email}. Token: ${resetToken}`);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'If that email exists, a reset link has been dispatched 📧',
+            // Return token in dev for manual verification/testing
+            ...(env.NODE_ENV === 'development' && { dev_token: resetToken })
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * 🔒 Reset Password Controller
+ * Matches token, verifies expiry, and updates user password.
+ */
+export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+
+        if (!token || typeof token !== 'string') {
+            throw new BadRequestError('Invalid reset token parameter 🛑');
+        }
+
+        // Hash the input token to match the database stored token
+        const hashedToken = crypto
+            .createHash('sha256')
+            .update(token)
+            .digest('hex');
+
+        // Find user by token and verify expiration
+        const user = await User.findOne({
+            passwordResetToken: hashedToken,
+            passwordResetExpires: { $gt: new Date() },
+        });
+
+        if (!user) {
+            throw new BadRequestError('Reset token is invalid or has expired ⏱️');
+        }
+
+        // Set the new password
+        const salt = await bcrypt.genSalt(10);
+        user.passwordHash = await bcrypt.hash(password, salt);
+
+        // Reset tracking fields and invalidate active refresh sessions for security
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+        user.refreshTokens = [];
+
+        await user.save();
+
+        logger.info(`🔒 [Auth Controller] Password reset successful for user: ${user.email}`);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Password has been reset successfully. Please login with your new credentials 🔑',
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * 📧 Verify Email Controller
+ */
+export const verifyEmail = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { token } = req.params;
+
+        if (!token || typeof token !== 'string') {
+            throw new BadRequestError('Invalid verification token parameter 🛑');
+        }
+
+        const user = await User.findOne({ verificationToken: token });
+
+        if (!user) {
+            throw new BadRequestError('Verification token is invalid or expired ⏱️');
+        }
+
+        user.isVerified = true;
+        user.verificationToken = undefined;
+        await user.save();
+
+        logger.info(`🟢 [Auth Controller] User verified successfully: ${user.email}`);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Email verified successfully! You can now log in 🎉',
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+

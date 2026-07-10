@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AnyZodObject, ZodError } from 'zod';
-import { BadRequestError } from '../utils/errors';
+import { ValidationError } from '../utils/errors';
 
 /**
  * 🛡️ Request Validation Middleware
@@ -10,27 +10,35 @@ import { BadRequestError } from '../utils/errors';
 export const validate = (schema: AnyZodObject) => {
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            // Validate inputs and pick the parsed output (filters extra unvalidated fields)
-            const parsed = await schema.parseAsync({
-                body: req.body,
-                query: req.query,
-                params: req.params,
-            });
+            // Support both root-level nested schemas (body, query, params) and flat body schemas
+            const hasRootKeys = 'body' in schema.shape || 'query' in schema.shape || 'params' in schema.shape;
 
-            // Inject clean validated inputs back into express request
-            req.body = parsed.body;
-            req.query = parsed.query;
-            req.params = parsed.params;
+            if (hasRootKeys) {
+                const parsed = await schema.parseAsync({
+                    body: req.body,
+                    query: req.query,
+                    params: req.params,
+                });
+                req.body = parsed.body;
+                req.query = parsed.query;
+                req.params = parsed.params;
+            } else {
+                const parsed = await schema.parseAsync(req.body);
+                req.body = parsed;
+            }
 
             next();
         } catch (error) {
             if (error instanceof ZodError) {
-                // Collect all parsing errors
-                const formatErrors = error.errors.map((err) => `${err.path.join('.').replace('body.', '')}: ${err.message}`);
+                // Collect all parsing errors into a key-value map
+                const formattedErrors: Record<string, string> = {};
+                error.errors.forEach((err) => {
+                    const path = err.path.join('.').replace(/^(body|query|params)\./, '').replace(/^(body|query|params)$/, '');
+                    const key = path || 'error';
+                    formattedErrors[key] = err.message;
+                });
 
-                // Pass validation error formatted clearly to the error handler middleware
-                const errMsg = `Validation mismatch: ${formatErrors.join(' | ')}`;
-                return next(new BadRequestError(errMsg));
+                return next(new ValidationError(formattedErrors));
             }
 
             next(error);

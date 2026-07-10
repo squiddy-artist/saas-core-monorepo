@@ -66,3 +66,41 @@ export const LoginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof LoginSchema>;
+
+/**
+ * 🔄 Token Refresh Validation Schema
+ */
+export const TokenRefreshSchema = z.object({
+  refreshToken: z
+    .string({ required_error: 'Refresh token is required 🔄' })
+    .min(1, { message: 'Refresh token cannot be empty 🔄' }),
+});
+
+export type TokenRefreshInput = z.infer<typeof TokenRefreshSchema>;
+
+/**
+ * 📧 Forgot Password Validation Schema
+ */
+export const ForgotPasswordSchema = z.object({
+  email: z
+    .string({ required_error: 'Email is required 📧' })
+    .email({ message: 'Please enter a valid email address ✉️' }),
+});
+
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;
+
+/**
+ * 🔒 Reset Password Validation Schema
+ */
+export const ResetPasswordSchema = z.object({
+  password: z
+    .string({ required_error: 'New password is required 🔑' })
+    .min(6, { message: 'New password must be at least 6 characters long 🔐' })
+    .max(100, { message: 'New password is too long 🚫' })
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+      message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number 🛡️',
+    }),
+});
+
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;
+

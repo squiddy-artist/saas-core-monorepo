@@ -3,11 +3,17 @@ import {
     register,
     login,
     refresh,
-    logout
+    logout,
+    forgotPassword,
+    resetPassword,
+    verifyEmail
 } from '../controllers/authController';
 import {
     RegisterSchema,
-    LoginSchema
+    LoginSchema,
+    TokenRefreshSchema,
+    ForgotPasswordSchema,
+    ResetPasswordSchema
 } from '@saas-core/shared-types';
 import validate from '../middleware/validate';
 import { authRateLimiter } from '../middleware/rateLimiter';
@@ -40,12 +46,63 @@ router.post(
  * 🔄 Token Renewal Rotation Endpoint
  * POST /api/auth/refresh
  */
-router.post('/refresh', refresh);
+router.post(
+    '/refresh',
+    (req, res, next) => {
+        if (!req.body.refreshToken && req.cookies.refresh_token) {
+            req.body.refreshToken = req.cookies.refresh_token;
+        }
+        next();
+    },
+    validate(TokenRefreshSchema),
+    refresh
+);
 
 /**
  * 🚪 Client Session Logout Endpoint
  * POST /api/auth/logout
  */
-router.post('/logout', logout);
+router.post(
+    '/logout',
+    (req, res, next) => {
+        if (!req.body.refreshToken && req.cookies.refresh_token) {
+            req.body.refreshToken = req.cookies.refresh_token;
+        }
+        next();
+    },
+    validate(TokenRefreshSchema),
+    logout
+);
+
+/**
+ * 📧 Forgot Password Request Endpoint
+ * POST /api/auth/forgot-password
+ */
+router.post(
+    '/forgot-password',
+    authRateLimiter,
+    validate(ForgotPasswordSchema),
+    forgotPassword
+);
+
+/**
+ * 🔒 Reset Password Endpoint
+ * POST /api/auth/reset-password/:token
+ */
+router.post(
+    '/reset-password/:token',
+    authRateLimiter,
+    validate(ResetPasswordSchema),
+    resetPassword
+);
+
+/**
+ * 📧 Verify Email Endpoint
+ * GET /api/auth/verify-email/:token
+ */
+router.get(
+    '/verify-email/:token',
+    verifyEmail
+);
 
 export default router;

@@ -8,6 +8,7 @@ import logger from './utils/logger';
 import masterRouter from './routes';
 import errorHandler from './middleware/errorHandler';
 import { globalRateLimiter } from './middleware/rateLimiter';
+import { NotFoundError } from './utils/errors';
 
 /**
  * 🏗️ Setup Express Server Engine
@@ -15,11 +16,19 @@ import { globalRateLimiter } from './middleware/rateLimiter';
 const app: Express = express();
 const port = env.PORT;
 
+const allowedOrigins = env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',') : [];
+
 // 1. 🛡️ Security Middleware Pipelines
 app.use(helmet()); // Sets protective security HTTP headers (protects against XSS, clickjacking, etc.)
 app.use(
   cors({
-    origin: true, // Enables flexible CORS matching, should match specific domains in production
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || env.NODE_ENV === 'development') {
+        callback(null, true);
+      } else {
+        callback(new Error('Blocked by CORS policy 🛡️'));
+      }
+    },
     credentials: true, // Crucial: Allows transfer of secure HTTP-Only cookies
   })
 );
@@ -32,6 +41,11 @@ app.use(cookieParser()); // Extracts credentials and session tokens from incomin
 
 // 3. 📡 API Route Registrations
 app.use('/api', masterRouter);
+
+// Catch-all unhandled route handler returning clean JSON 404 Error
+app.use((req, res, next) => {
+  next(new NotFoundError('Requested route could not be found on our engine 🔎'));
+});
 
 // 4. 🌋 Global Interceptor for Uncaught Operational Exceptions
 app.use(errorHandler);

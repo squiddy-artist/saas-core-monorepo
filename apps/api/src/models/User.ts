@@ -9,6 +9,10 @@ export interface IUser extends Document {
   email: string;
   passwordHash: string;
   refreshTokens: string[]; // 🔄 Holds valid rotation tokens for multi-device login sessions
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
+  isVerified: boolean;
+  verificationToken?: string;
   createdAt: Date;
 }
 
@@ -38,6 +42,19 @@ const UserSchema: Schema = new Schema(
     refreshTokens: {
       type: [String],
       default: []
+    },
+    passwordResetToken: {
+      type: String
+    },
+    passwordResetExpires: {
+      type: Date
+    },
+    isVerified: {
+      type: Boolean,
+      default: false
+    },
+    verificationToken: {
+      type: String
     }
   },
   {

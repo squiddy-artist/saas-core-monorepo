@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppError } from '../utils/errors';
+import { AppError, ValidationError } from '../utils/errors';
 import logger from '../utils/logger';
 import env from '../config/env';
 
@@ -17,12 +17,50 @@ export const errorHandler = (
     let statusCode = 500;
     let status = 'error';
     let message = 'An unexpected error occurred on our engine 🌋';
+    let errors: Record<string, string> | undefined;
 
     // 1. Detect if the error is a customized Operational Error (AppError)
     if (err instanceof AppError) {
         statusCode = err.statusCode;
         status = err.status;
         message = err.message;
+
+        if (err instanceof ValidationError) {
+            errors = err.errors;
+        }
+    }
+    // 2. Capture JSON payload parsing exceptions
+    else if (err instanceof SyntaxError && (err as any).status === 400 && 'body' in err) {
+        statusCode = 400;
+        status = 'fail';
+        message = 'Invalid JSON request payload formatting 🗂️';
+    }
+    // 3. Capture Mongoose Cast errors (e.g. invalid MongoDB ObjectIDs)
+    else if (err.name === 'CastError') {
+        statusCode = 400;
+        status = 'fail';
+        message = `Invalid database key identifier format for path: ${(err as any).path} 🔍`;
+    }
+    // 4. Capture Mongoose Schema validation errors
+    else if (err.name === 'ValidationError') {
+        statusCode = 400;
+        status = 'fail';
+        message = 'Database schema validation constraint failed 📝';
+
+        const mongooseErrors = (err as any).errors;
+        if (mongooseErrors) {
+            errors = {};
+            for (const key of Object.keys(mongooseErrors)) {
+                errors[key] = mongooseErrors[key].message;
+            }
+        }
+    }
+    // 5. Capture MongoDB duplicate key errors (code 11000)
+    else if ((err as any).code === 11000) {
+        statusCode = 409;
+        status = 'fail';
+        const field = Object.keys((err as any).keyValue || {})[0] || 'field';
+        message = `This ${field} is already in use by another account 💥`;
     }
 
     // 2. Log error details using our Winston logger
@@ -36,7 +74,9 @@ export const errorHandler = (
     res.status(statusCode).json({
         status,
         message,
-        ...(env.NODE_ENV === 'development' && { stack: err.stack }), // Double shield: stack trace visible ONLY in Dev
+        ...(errors && { errors }),
+        // Only include the stack trace for unhandled internal server errors (500+) in development
+        ...(env.NODE_ENV === 'development' && statusCode >= 500 && { stack: err.stack }),
     });
 };
 
